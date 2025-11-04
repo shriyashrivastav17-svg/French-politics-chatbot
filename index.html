@@ -6,6 +6,7 @@
     <title>French Politics Bot</title>
     
     <style>
+        /* NEW: Added a background image of the French Parliament */
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
             background-color: #f4f7f6;
@@ -15,17 +16,29 @@
             justify-content: center;
             align-items: center;
             height: 100vh;
+            
+            /* --- This adds the background --- */
+            background-image: 
+                linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), /* Dark overlay for readability */
+                url('https://upload.wikimedia.org/wikipedia/commons/9/9f/Palais_Bourbon_-_Paris.jpg'); /* Assemblée Nationale */
+            background-size: cover;
+            background-position: center;
+            /* ----------------------------- */
         }
+        
         #chat-container {
             width: 100%;
             max-width: 600px;
             background-color: #ffffff;
             border-radius: 10px;
+            /* NEW: Added a subtle blur effect for the background */
+            backdrop-filter: blur(5px);
+            background-color: rgba(255, 255, 255, 0.95); /* Slightly transparent */
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
             overflow: hidden;
             display: flex;
             flex-direction: column;
-            height: 80vh;
+            height: 85vh; /* Increased height slightly */
         }
         h1 {
             text-align: center;
@@ -33,6 +46,11 @@
             padding: 20px;
             margin: 0;
             border-bottom: 1px solid #e0e0e0;
+            font-size: 24px;
+        }
+        h1 i {
+            font-style: normal;
+            margin-right: 10px;
         }
         #chat-window {
             flex-grow: 1;
@@ -47,6 +65,7 @@
             border-radius: 18px;
             max-width: 75%;
             word-wrap: break-word;
+            line-height: 1.4;
         }
         .user-message {
             background-color: #007bff;
@@ -60,10 +79,37 @@
             align-self: flex-start;
             border-bottom-left-radius: 4px;
         }
+        
+        /* NEW: Styles for the interactive suggestion buttons */
+        #suggested-questions {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            padding: 10px 15px 5px 15px;
+            border-top: 1px solid #e0e0e0;
+            background: #fdfdfd;
+        }
+        .suggestion-chip {
+            background: #f1f1f1;
+            color: #003366;
+            border: 1px solid #003366;
+            border-radius: 20px;
+            padding: 8px 12px;
+            margin: 5px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: background-color 0.2s, color 0.2s;
+        }
+        .suggestion-chip:hover {
+            background: #003366;
+            color: white;
+        }
+        
         #input-form {
             display: flex;
             border-top: 1px solid #e0e0e0;
             padding: 15px;
+            background: #fff;
         }
         #message-input {
             flex-grow: 1;
@@ -90,12 +136,18 @@
 <body>
 
     <div id="chat-container">
-        <h1>🏛️ French Politics Bot</h1>
+        <h1><i>🏛️</i> French Politics Bot</h1>
         
         <div id="chat-window">
             <div class="chat-message bot-message">
-                Bonjour! Ask me about the president, prime minister, or political parties.
+                Bonjour! I am an AI assistant. Ask me anything about French politics.
             </div>
+        </div>
+
+        <div id="suggested-questions">
+            <button class="suggestion-chip">Who is the president?</button>
+            <button class="suggestion-chip">What is the National Rally?</button>
+            <button class="suggestion-chip">Explain the role of the Prime Minister</button>
         </div>
 
         <form id="input-form">
@@ -108,17 +160,35 @@
         const chatForm = document.getElementById("input-form");
         const chatInput = document.getElementById("message-input");
         const chatWindow = document.getElementById("chat-window");
+        // NEW: Get the suggestion buttons
+        const suggestionButtons = document.querySelectorAll(".suggestion-chip");
+        const suggestionsContainer = document.getElementById("suggested-questions");
 
         // Listen for when the user submits the form (presses "Send" or Enter)
-        chatForm.addEventListener("submit", async function(event) {
+        chatForm.addEventListener("submit", function(event) {
             event.preventDefault(); // Stop the page from reloading
             
             const userMessage = chatInput.value;
             if (userMessage.trim() === "") return; // Don't send empty messages
 
+            sendMessage(userMessage); // NEW: Use the shared send function
+            chatInput.value = ""; // Clear the input box
+        });
+
+        // NEW: Add click listeners for all suggestion buttons
+        suggestionButtons.forEach(button => {
+            button.addEventListener("click", () => {
+                const message = button.textContent; // Get text from button
+                sendMessage(message); // Send it
+                // Optional: hide suggestions after one is clicked
+                suggestionsContainer.style.display = "none";
+            });
+        });
+
+        // NEW: Created a single function to handle sending/receiving
+        async function sendMessage(userMessage) {
             // 1. Add the user's message to the chat window
             addMessageToChat(userMessage, "user-message");
-            chatInput.value = ""; // Clear the input box
 
             try {
                 // 2. Send the user's message to the Python (Flask) backend
@@ -130,6 +200,10 @@
                     body: JSON.stringify({ message: userMessage }),
                 });
 
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
                 const data = await response.json();
                 const botResponse = data.response;
 
@@ -140,9 +214,9 @@
                 console.error("Error:", error);
                 addMessageToChat("Sorry, something went wrong. Please try again.", "bot-message");
             }
-        });
+        }
 
-        // A helper function to add a new message bubble to the chat window
+        // This helper function is unchanged
         function addMessageToChat(message, messageClass) {
             const messageElement = document.createElement("div");
             messageElement.classList.add("chat-message", messageClass);
