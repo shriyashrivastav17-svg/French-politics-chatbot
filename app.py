@@ -1,44 +1,57 @@
 from flask import Flask, render_template, request, jsonify
-import re
+import google.generativeai as genai  # Import the Google AI library
+import os
 
-# Initialize the Flask application
+# --- ⚠️ IMPORTANT: ADD YOUR API KEY HERE ---
+#
+# Replace "YOUR_API_KEY_HERE" with the key you got from Google AI Studio.
+# This was the most likely cause of your previous error.
+#
+# -----------------------------------------------
+try:
+    API_KEY = "YOUR_API_KEY_HERE" 
+    genai.configure(api_key=API_KEY)
+    MODEL = genai.GenerativeModel('gemini-1.5-flash-latest') # Using a fast, modern model
+except Exception as e:
+    print(f"Error initializing Gemini client: {e}")
+    print("Please make sure you have set your API key correctly in app.py.")
+    MODEL = None
+# -------------------------------------------
+
 app = Flask(__name__)
 
-# This is the same chatbot logic from our previous example
 def get_bot_response(user_input):
     """
-    Checks user input against the knowledge base.
+    Gets a response from the Gemini AI model.
     """
-    user_input = user_input.lower().strip()
+    if not MODEL:
+        return "Error: The AI service is not configured. Please check the API key in the server terminal."
     
-    knowledge_base = {
-        r'\b(president)\b': 
-            "The current President of France is Emmanuel Macron.",
-        r'\b(prime minister|pm)\b': 
-            "The current Prime Minister of France is Sébastien Lecornu, appointed in September 2025.",
-        r'\b(parliament)\b': 
-            "The French Parliament (Parlement français) is bicameral. It consists of the Senate (Sénat) and the National Assembly (Assemblée nationale).",
-        r'\b(renaissance|lrem|macron\'s party)\b': 
-            "Renaissance (formerly LREM) is a centrist to centre-right, liberal, and pro-European party founded by Emmanuel Macron.",
-        r'\b(national rally|rn|le pen|bardella)\b': 
-            "National Rally (Rassemblement National or RN) is a far-right, nationalist party. Its key figures include Marine Le Pen and its current president, Jordan Bardella.",
-        r'\b(unbowed france|lfi|melenchon)\b': 
-            "La France Insoumise (LFI) or 'Unbowed France' is a far-left party led by Jean-Luc Mélenchon.",
-        r'\b(republicans|les républicains|lr)\b': 
-            "Les Républicains (LR) is the main conservative, centre-right party in France.",
-        r'\b(election|presidential election)\b': 
-            "The next French presidential election is scheduled to be held in the spring of 2027.",
-        r'\b(hello|hi|bonjour)\b': 
-            "Bonjour! How can I help you today?"
-    }
+    # This is "Prompt Engineering"
+    # We give the AI a role and a task to keep it on topic.
+    system_prompt = (
+        "You are a helpful, neutral, and factual expert on French politics. "
+        "Your job is to answer the user's question about this topic. "
+        "If the user asks about something other than French politics, "
+        "politely state that you only answer questions related to that topic."
+    )
+    
+    # Combine the system instructions with the user's question
+    full_prompt = f"{system_prompt}\n\nUser question: {user_input}"
 
-    # Check the user's input against the knowledge base
-    for keyword_pattern, answer in knowledge_base.items():
-        if re.search(keyword_pattern, user_input):
-            return answer
+    try:
+        # Send the prompt to the AI
+        response = MODEL.generate_content(full_prompt)
+        
+        # Return the AI's generated text
+        return response.text
     
-    # Default response if no match is found
-    return "I'm sorry, I don't have information on that. Try asking about the president, parties, or parliament."
+    except Exception as e:
+        # This will print the *real* error to your terminal for debugging
+        print(f"Error during AI generation: {e}") 
+        
+        # This is the "safe" error message the user sees
+        return "Sorry, something went wrong. Please try again."
 
 # --- Web Routes ---
 
@@ -55,10 +68,12 @@ def ask():
     This route handles the chat message from the user.
     The JavaScript from the HTML page will send a request here.
     """
-    # Get the user's message from the data sent by the JavaScript
     data = request.get_json()
     user_message = data.get("message")
     
+    if not user_message:
+        return jsonify({"response": "Error: No message received."})
+        
     # Get the bot's response
     bot_response = get_bot_response(user_message)
     
