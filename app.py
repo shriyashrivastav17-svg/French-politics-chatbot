@@ -9,7 +9,7 @@ import os
 #
 # -----------------------------------------------
 try:
-    API_KEY = "YOUR_API_KEY_HERE" 
+    API_KEY = "AIzaSyB1gFYcoqE5XUgb_n7_-QfToFoK5viXIrI" 
     genai.configure(api_key=API_KEY)
     MODEL = genai.GenerativeModel('gemini-1.5-flash-latest') # Using a fast, modern model
 except Exception as e:
